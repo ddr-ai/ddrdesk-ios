@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// Touchscreen as a relative trackpad:
-/// one-finger drag = move, tap = left click, two-finger tap = right click.
+/// one-finger drag = move, tap = left click, quick double-tap = right click.
 struct TrackpadView: UIViewRepresentable {
     var session: DeskSession
     var onTapKeyboard: () -> Void
@@ -25,12 +25,14 @@ final class TrackpadUIView: UIView {
     var onTapKeyboard: (() -> Void)?
 
     private var last: CGPoint?
-    private var twoFingerTap = false
     private var moved = false
+    private var pendingLeft: DispatchWorkItem?
+    private var lastTapAt: TimeInterval = 0
+    private let doubleTapWindow: TimeInterval = 0.28
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        isMultipleTouchEnabled = true
+        isMultipleTouchEnabled = false
         backgroundColor = .clear
         isExclusiveTouch = false
     }
@@ -38,7 +40,6 @@ final class TrackpadUIView: UIView {
     required init?(coder: NSCoder) { fatalError() }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        twoFingerTap = (event?.allTouches?.count ?? touches.count) >= 2
         moved = false
         last = touches.first?.location(in: self)
         onTapKeyboard?()
@@ -52,6 +53,7 @@ final class TrackpadUIView: UIView {
             let dy = Float(p.y - last.y)
             if abs(dx) + abs(dy) > 0.5 {
                 moved = true
+                cancelPendingLeft()
                 session?.sendInput(InputJSON.move(dx: dx, dy: dy))
             }
         }
@@ -59,24 +61,38 @@ final class TrackpadUIView: UIView {
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        defer {
-            last = nil
-            twoFingerTap = false
+        defer { last = nil }
+        guard !moved else {
             moved = false
+            return
         }
-        if !moved {
-            if twoFingerTap || (event?.allTouches?.count ?? 1) >= 2 {
-                click("right")
-            } else {
-                click("left")
-            }
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastTapAt <= doubleTapWindow, pendingLeft != nil {
+            cancelPendingLeft()
+            lastTapAt = 0
+            click("right")
+            return
         }
+        lastTapAt = now
+        cancelPendingLeft()
+        let work = DispatchWorkItem { [weak self] in
+            self?.pendingLeft = nil
+            self?.lastTapAt = 0
+            self?.click("left")
+        }
+        pendingLeft = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + doubleTapWindow, execute: work)
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         last = nil
-        twoFingerTap = false
         moved = false
+        cancelPendingLeft()
+    }
+
+    private func cancelPendingLeft() {
+        pendingLeft?.cancel()
+        pendingLeft = nil
     }
 
     private func click(_ b: String) {
