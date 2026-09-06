@@ -1,0 +1,53 @@
+name: Build unsigned IPA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode
+        run: xcodebuild -version && xcodebuild -showsdks | head
+
+      - name: Build iPhone / iPad (unsigned, device)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project DDRDesk.xcodeproj \
+            -scheme DDRDesk \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
+
+      - name: Package .ipa
+        run: |
+          set -euo pipefail
+          APP=$(find DerivedData/Build/Products -name 'DDRDesk.app' -type d | head -n1)
+          test -n "$APP"
+          echo "Using $APP"
+          rm -rf Payload DDRDesk.ipa
+          mkdir Payload
+          cp -R "$APP" Payload/
+          zip -r DDRDesk.ipa Payload
+          ls -lh DDRDesk.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DDRDesk-unsigned-ipa
+          path: DDRDesk.ipa
+          if-no-files-found: error
