@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>DDRDesk iOS update</title>
+<style>
+body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #0b1220; color: #e8eef7; }
+main { max-width: 28rem; margin: 0 auto; padding: 1.5rem; }
+h1 { font-weight: 650; }
+.card { background: #162033; border-radius: 16px; padding: 1rem 1.1rem; margin: 1rem 0; }
+a.btn { display: block; text-align: center; padding: 0.9rem; margin: 0.55rem 0; border-radius: 12px; text-decoration: none; font-weight: 650; color: #041018; background: #22d3ee; }
+a.btn.alt { background: #94a3b8; }
+p { color: #b6c2d4; line-height: 1.45; }
+code { color: #f8fafc; word-break: break-all; }
+</style>
+</head>
+<body>
+<main>
+<h1>DDRDesk</h1>
+<p>Install or update the iPhone/iPad app. Built on GitHub Actions — no Mac and no local Xcode.</p>
+<div class="card">
+<strong>__VERSION__</strong> &nbsp; build __BUILD__<br/>
+<span>__NOTES__</span>
+</div>
+<p>Tap the installer you already have on this phone. After the first sideload, you should not need a computer.</p>
+<a class="btn" href="altstore://install?url=__ENC__">Install with AltStore</a>
+<a class="btn" href="sidestore://install?url=__ENC__">Install with SideStore</a>
+<a class="btn" href="feather://install?url=__ENC__">Install with Feather</a>
+<a class="btn" href="esign://install?url=__ENC__">Install with ESign</a>
+<a class="btn" href="apple-magnifier://install?url=__ENC__">Install with TrollStore</a>
+<a class="btn alt" href="__IPA__">Download DDRDesk.ipa</a>
+<p>AltStore/SideStore source (add once):<br/>
+<code>https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/altstore.json</code></p>
+</main>
+</body>
+</html>
