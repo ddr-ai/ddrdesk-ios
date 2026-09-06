@@ -13,17 +13,14 @@ struct RemoteScreen: UIViewRepresentable {
         v.sink = sink
         v.onReady = { context.coordinator.onReady() }
         v.backgroundColor = .black
-        sink.layer.videoGravity = .resizeAspect
-        sink.layer.backgroundColor = UIColor.black.cgColor
-        v.layer.addSublayer(sink.layer)
-        sink.layer.frame = v.bounds
+        v.attach()
         return v
     }
 
     func updateUIView(_ uiView: HostView, context: Context) {
         uiView.sink = sink
         uiView.onReady = { context.coordinator.onReady() }
-        uiView.setNeedsLayout()
+        uiView.attach()
     }
 
     final class Coord {
@@ -35,9 +32,22 @@ struct RemoteScreen: UIViewRepresentable {
         var sink: VideoSink?
         var onReady: (() -> Void)?
         private var didReady = false
+
+        func attach() {
+            guard let layer = sink?.layer else { return }
+            layer.videoGravity = .resizeAspect
+            layer.backgroundColor = UIColor.black.cgColor
+            if layer.superlayer !== self.layer {
+                layer.removeFromSuperlayer()
+                self.layer.addSublayer(layer)
+            }
+            layer.frame = bounds
+        }
+
         override func layoutSubviews() {
             super.layoutSubviews()
             sink?.layer.frame = bounds
+            sink?.layer.videoGravity = .resizeAspect
             if bounds.width > 2, bounds.height > 2, !didReady {
                 didReady = true
                 onReady?()

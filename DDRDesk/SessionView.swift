@@ -59,10 +59,12 @@ struct SessionView: View {
             session.sendViewport()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 let now = OrientationName.current()
                 if now != lastOrientation {
                     lastOrientation = now
+                    // Relayout only. Do not tear down the decoder; the host keeps
+                    // the same landscape encode and the layer letterboxes.
                     session.sendViewport()
                 }
             }
