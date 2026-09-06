@@ -119,11 +119,14 @@ final class VideoSink {
                 var sizes: [Int] = [spsBytes.count, ppsBytes.count]
                 return ptrs.withUnsafeBufferPointer { pPtrs in
                     sizes.withUnsafeBufferPointer { pSizes in
-                        CMVideoFormatDescriptionCreateFromH264ParameterSets(
+                        guard let pBase = pPtrs.baseAddress, let sBase = pSizes.baseAddress else {
+                            return OSStatus(-1)
+                        }
+                        return CMVideoFormatDescriptionCreateFromH264ParameterSets(
                             allocator: kCFAllocatorDefault,
                             parameterSetCount: 2,
-                            parameterSetPointers: pPtrs.baseAddress,
-                            parameterSetSizes: pSizes.baseAddress,
+                            parameterSetPointers: pBase,
+                            parameterSetSizes: sBase,
                             nalUnitHeaderLength: 4,
                             formatDescriptionOut: &format
                         )
