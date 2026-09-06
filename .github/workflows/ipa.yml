@@ -19,8 +19,12 @@ jobs:
         run: xcodebuild -version && xcodebuild -showsdks | head
 
       - name: Build iPhone / iPad (unsigned, device)
+        env:
+          BUILD: ${{ github.run_number }}
         run: |
           set -euo pipefail
+          VERSION="1.0.${BUILD}"
+          echo "Stamping MARKETING_VERSION=${VERSION} CURRENT_PROJECT_VERSION=${BUILD}"
           xcodebuild \
             -project DDRDesk.xcodeproj \
             -scheme DDRDesk \
@@ -32,41 +36,105 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
+            MARKETING_VERSION="${VERSION}" \
+            CURRENT_PROJECT_VERSION="${BUILD}" \
             build
 
       - name: Package .ipa
+        env:
+          BUILD: ${{ github.run_number }}
+          NOTES: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
           APP=$(find DerivedData/Build/Products -name 'DDRDesk.app' -type d | head -n1)
           test -n "$APP"
           echo "Using $APP"
           file "$APP/DDRDesk"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist"
           rm -rf Payload DDRDesk.ipa
           mkdir Payload
           cp -R "$APP" Payload/
           zip -r DDRDesk.ipa Payload
           ls -lh DDRDesk.ipa
 
+          export VERSION="1.0.${BUILD}"
+          export SIZE=$(stat -f%z DDRDesk.ipa)
+          export IPA_URL="https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/DDRDesk.ipa"
+          export DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          python3 - << 'PY'
+          import json, os
+          version = os.environ["VERSION"]
+          build = int(os.environ["BUILD"])
+          size = int(os.environ["SIZE"])
+          ipa = os.environ["IPA_URL"]
+          date = os.environ["DATE"]
+          notes = (os.environ.get("NOTES") or "Latest main").splitlines()[0].strip()
+          latest = {
+            "version": version,
+            "build": build,
+            "ipaURL": ipa,
+            "notes": notes,
+            "date": date,
+          }
+          altstore = {
+            "name": "DDRDesk",
+            "identifier": "ai.ddr.DDRDesk.source",
+            "sourceURL": "https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/altstore.json",
+            "apps": [{
+              "name": "DDRDesk",
+              "bundleIdentifier": "ai.ddr.DDRDesk",
+              "developerName": "ddr-ai",
+              "subtitle": "Remote desktop for your Fedora laptop",
+              "localizedDescription": "Native iPhone/iPad client for DDRDesk. Updates come from this source after each GitHub Actions build.",
+              "iconURL": "https://raw.githubusercontent.com/ddr-ai/ddrdesk-ios/main/DDRDesk/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+              "tintColor": "22D3EE",
+              "category": "utilities",
+              "versions": [{
+                "version": version,
+                "buildVersion": str(build),
+                "date": date,
+                "localizedDescription": notes,
+                "downloadURL": ipa,
+                "size": size,
+                "minOSVersion": "17.0",
+              }],
+            }],
+          }
+          open("latest.json","w").write(json.dumps(latest, indent=2) + "\n")
+          open("altstore.json","w").write(json.dumps(altstore, indent=2) + "\n")
+          print(open("latest.json").read())
+          PY
+
       - uses: actions/upload-artifact@v4
         with:
           name: DDRDesk-unsigned-ipa
-          path: DDRDesk.ipa
+          path: |
+            DDRDesk.ipa
+            latest.json
+            altstore.json
           if-no-files-found: error
 
       - name: Publish GitHub Release
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
+          BUILD: ${{ github.run_number }}
         run: |
           set -euo pipefail
           tag=unsigned-ipa
-          notes="Unsigned arm64 iPhone/iPad IPA (no signing). Download, sign with your Apple ID (Sideloadly, AltStore, or Xcode), then install.
+          notes="Unsigned arm64 iPhone/iPad IPA (build ${BUILD}).
 
-          Bundle ID: ai.ddr.DDRDesk
-          Platforms: iPhone + iPad"
+          The installed app checks this feed and opens AltStore/SideStore/TrollStore to apply the new IPA:
+          https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/latest.json
+
+          AltStore source (add once):
+          https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/altstore.json
+
+          Bundle ID: ai.ddr.DDRDesk"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" DDRDesk.ipa --clobber
-            gh release edit "$tag" --notes "$notes"
+            gh release upload "$tag" DDRDesk.ipa latest.json altstore.json --clobber
+            gh release edit "$tag" --notes "$notes" --title "DDRDesk unsigned IPA (build ${BUILD})"
           else
-            gh release create "$tag" DDRDesk.ipa --title "DDRDesk unsigned IPA" --notes "$notes"
+            gh release create "$tag" DDRDesk.ipa latest.json altstore.json --title "DDRDesk unsigned IPA (build ${BUILD})" --notes "$notes"
           fi

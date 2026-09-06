@@ -29,6 +29,23 @@ The IPA has **no** signature and **no** provisioning profile. Sign it with your 
 
 Bundle ID is `ai.ddr.DDRDesk`. On first launch, allow **Local Network** (mDNS).
 
+## Auto-update
+
+iOS will not silently replace a sideloaded app. DDRDesk does the next best thing:
+
+1. Every push to `main` stamps a new **build number** (`github.run_number`) into the IPA.
+2. GitHub Actions publishes `latest.json` next to the IPA.
+3. The app checks that feed on launch, when returning to the foreground, and every 2 minutes.
+4. If a newer build exists, it opens **AltStore**, **SideStore**, or **TrollStore** (`…://install?url=`) so the new IPA is installed over the old one. You should not need to download the IPA by hand after the first install.
+
+**One-time AltStore/SideStore setup (recommended):** add this source, then enable automatic app updates in AltStore:
+
+https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/altstore.json
+
+Or in AltStore: **Sources → +** and paste that URL.
+
+The connect screen also shows **Update available — tap to install** if a newer build is on GitHub.
+
 To build locally on a Mac:
 
 ```bash

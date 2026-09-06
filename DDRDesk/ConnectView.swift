@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ConnectView: View {
     @StateObject private var session = DeskSession()
+    @EnvironmentObject private var updates: UpdateService
     @State private var digits = ""
     @State private var started = false
     @FocusState private var idFocused: Bool
@@ -69,6 +70,26 @@ struct ConnectView: View {
             .disabled(digits.filter(\.isNumber).count != 9)
             .padding(.horizontal, 32)
 
+            if updates.updateAvailable {
+                Button {
+                    updates.apply()
+                } label: {
+                    VStack(spacing: 4) {
+                        Text("Update available — tap to install")
+                            .font(.headline)
+                        if let v = updates.latest {
+                            Text("Build \(v.build)  (\(v.version))")
+                                .font(.caption)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.orange.opacity(0.9), in: RoundedRectangle(cornerRadius: 14))
+                    .foregroundStyle(.black)
+                }
+                .padding(.horizontal, 32)
+            }
+
             if let last = PairingStore.shared.load().first {
                 Button("Reconnect to \(last.name)  \(format(last.id))") {
                     digits = format(last.id)
@@ -79,13 +100,16 @@ struct ConnectView: View {
             }
 
             Spacer()
-            Text("No account, no relay. The phone talks only to your laptop.")
+            Text("v\(updates.currentVersion) (\(updates.currentBuild))  ·  No account, no relay.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .padding(.bottom)
         }
         .padding()
-        .onAppear { idFocused = true }
+        .onAppear {
+            idFocused = true
+            Task { await updates.check(autoInstall: true) }
+        }
         .onChange(of: session.state) { _, st in
             if case .idle = st { started = false }
             if case .failed = st { started = false }
