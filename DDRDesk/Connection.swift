@@ -80,6 +80,10 @@ final class DeskSession: ObservableObject {
         send(type: .input, payload: payload)
     }
 
+    func requestKeyframe() {
+        send(type: .requestKeyframe, payload: Data())
+    }
+
     private func attempt() {
         guard shouldRun else { return }
         state = .searching

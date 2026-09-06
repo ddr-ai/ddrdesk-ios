@@ -8,7 +8,9 @@ struct SessionView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            RemoteScreen(sink: session.video)
+            RemoteScreen(sink: session.video, onReady: {
+                session.requestKeyframe()
+            })
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
