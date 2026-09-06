@@ -14,6 +14,7 @@ enum Msg: UInt8 {
     case status = 0x0A
     case goodbye = 0x0B
     case bitrateHint = 0x0C
+    case cursor = 0x0D
 }
 
 enum OrientationName {
@@ -75,6 +76,13 @@ struct ViewportMsg: Codable {
 struct AuthFail: Codable { var error: String }
 struct StatusMsg: Codable { var state: String; var msg: String }
 struct BitrateHint: Codable { var kbps: UInt32 }
+struct CursorPos: Codable {
+    var x: Float
+    var y: Float
+    var w: UInt32
+    var h: UInt32
+    var visible: Bool
+}
 
 enum InputJSON {
     static func move(dx: Float, dy: Float) -> Data {

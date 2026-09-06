@@ -92,6 +92,11 @@ final class VideoSink {
 
         if let attachments = CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: true) {
             let dict = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
+            CFDictionarySetValue(
+                dict,
+                Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
+                Unmanaged.passUnretained(kCFBooleanTrue).toOpaque()
+            )
             if !keyframe {
                 CFDictionarySetValue(
                     dict,

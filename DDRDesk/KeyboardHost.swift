@@ -1,92 +1,115 @@
 import SwiftUI
 import UIKit
 
-/// Hidden first-responder that surfaces the **system** iOS keyboard.
-/// Inserts and deletes are forwarded as native text/key events — no custom keyboard.
+/// System keyboard via UIKeyInput. Trackpad taps must not steal first-responder
+/// or keystrokes never leave the phone.
 struct KeyboardHost: UIViewRepresentable {
     var session: DeskSession
     @Binding var focused: Bool
 
     func makeCoordinator() -> Coord { Coord(session: session) }
 
-    func makeUIView(context: Context) -> HiddenField {
-        let f = HiddenField()
-        f.coordinator = context.coordinator
-        f.autocorrectionType = .no
-        f.autocapitalizationType = .none
-        f.spellCheckingType = .no
-        f.smartDashesType = .no
-        f.smartQuotesType = .no
-        f.smartInsertDeleteType = .no
-        f.textContentType = .none
-        f.keyboardType = .default
-        f.returnKeyType = .default
-        f.backgroundColor = .clear
-        f.tintColor = .clear
-        f.textColor = .clear
-        return f
+    func makeUIView(context: Context) -> KeyCatcher {
+        let v = KeyCatcher()
+        v.session = session
+        v.isUserInteractionEnabled = true
+        v.backgroundColor = .clear
+        return v
     }
 
-    func updateUIView(_ uiView: HiddenField, context: Context) {
-        context.coordinator.session = session
-        uiView.coordinator = context.coordinator
-        if focused && !uiView.isFirstResponder {
-            uiView.becomeFirstResponder()
-        } else if !focused && uiView.isFirstResponder {
+    func updateUIView(_ uiView: KeyCatcher, context: Context) {
+        uiView.session = session
+        if focused {
+            _ = uiView.becomeFirstResponder()
+        } else if uiView.isFirstResponder {
             uiView.resignFirstResponder()
         }
     }
 
-    final class Coord: NSObject, UITextFieldDelegate {
+    final class Coord {
         var session: DeskSession
         init(session: DeskSession) { self.session = session }
-
-        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-            if string.isEmpty {
-                session.sendInput(InputJSON.key("backspace", down: true))
-                session.sendInput(InputJSON.key("backspace", down: false))
-            } else {
-                session.sendInput(InputJSON.text(string))
-            }
-            return false
-        }
-
-        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-            session.sendInput(InputJSON.key("return", down: true))
-            session.sendInput(InputJSON.key("return", down: false))
-            return false
-        }
     }
 }
 
-final class HiddenField: UITextField {
-    var coordinator: KeyboardHost.Coord?
+final class KeyCatcher: UIView, UIKeyInput {
+    var session: DeskSession?
 
     override var canBecomeFirstResponder: Bool { true }
+    override var canResignFirstResponder: Bool { true }
 
-    override func caretRect(for position: UITextPosition) -> CGRect { .zero }
-    override func selectionRects(for range: UITextRange) -> [UITextSelectionRect] { [] }
+    var keyboardType: UIKeyboardType { .default }
+    var autocapitalizationType: UITextAutocapitalizationType { .none }
+    var autocorrectionType: UITextAutocorrectionType { .no }
+    var spellCheckingType: UITextSpellCheckingType { .no }
+    var smartQuotesType: UITextSmartQuotesType { .no }
+    var smartDashesType: UITextSmartDashesType { .no }
+    var textContentType: UITextContentType? { nil }
 
-    override var keyCommands: [UIKeyCommand]? {
-        [
-            UIKeyCommand(input: UIKeyCommand.inputEscape, modifierFlags: [], action: #selector(esc)),
-            UIKeyCommand(input: UIKeyCommand.inputUpArrow, modifierFlags: [], action: #selector(up)),
-            UIKeyCommand(input: UIKeyCommand.inputDownArrow, modifierFlags: [], action: #selector(down)),
-            UIKeyCommand(input: UIKeyCommand.inputLeftArrow, modifierFlags: [], action: #selector(left)),
-            UIKeyCommand(input: UIKeyCommand.inputRightArrow, modifierFlags: [], action: #selector(right)),
-            UIKeyCommand(input: "\t", modifierFlags: [], action: #selector(tab)),
-        ]
+    var hasText: Bool { true }
+
+    func insertText(_ text: String) {
+        if text == "\n" || text == "\r" {
+            session?.sendInput(InputJSON.key("return", down: true))
+            session?.sendInput(InputJSON.key("return", down: false))
+            return
+        }
+        if text == "\t" {
+            session?.sendInput(InputJSON.key("tab", down: true))
+            session?.sendInput(InputJSON.key("tab", down: false))
+            return
+        }
+        session?.sendInput(InputJSON.text(text))
     }
 
-    @objc func esc() { tap("escape") }
-    @objc func up() { tap("up") }
-    @objc func down() { tap("down") }
-    @objc func left() { tap("left") }
-    @objc func right() { tap("right") }
-    @objc func tab() { tap("tab") }
+    func deleteBackward() {
+        session?.sendInput(InputJSON.key("backspace", down: true))
+        session?.sendInput(InputJSON.key("backspace", down: false))
+    }
 
-    private func tap(_ k: String) {
-        coordinator?.session.sendInput(InputJSON.key(k, down: true))
-        coordinator?.session.sendInput(InputJSON.key(k, down: false))
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        var handled = false
+        for p in presses {
+            guard let key = p.key else { continue }
+            let name: String?
+            switch key.keyCode {
+            case .keyboardReturnOrEnter: name = "return"
+            case .keyboardEscape: name = "escape"
+            case .keyboardTab: name = "tab"
+            case .keyboardUpArrow: name = "up"
+            case .keyboardDownArrow: name = "down"
+            case .keyboardLeftArrow: name = "left"
+            case .keyboardRightArrow: name = "right"
+            case .keyboardDeleteOrBackspace: name = "backspace"
+            default: name = nil
+            }
+            if let name {
+                session?.sendInput(InputJSON.key(name, down: true))
+                handled = true
+            }
+        }
+        if !handled { super.pressesBegan(presses, with: event) }
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for p in presses {
+            guard let key = p.key else { continue }
+            let name: String?
+            switch key.keyCode {
+            case .keyboardReturnOrEnter: name = "return"
+            case .keyboardEscape: name = "escape"
+            case .keyboardTab: name = "tab"
+            case .keyboardUpArrow: name = "up"
+            case .keyboardDownArrow: name = "down"
+            case .keyboardLeftArrow: name = "left"
+            case .keyboardRightArrow: name = "right"
+            case .keyboardDeleteOrBackspace: name = "backspace"
+            default: name = nil
+            }
+            if let name {
+                session?.sendInput(InputJSON.key(name, down: false))
+            }
+        }
+        super.pressesEnded(presses, with: event)
     }
 }

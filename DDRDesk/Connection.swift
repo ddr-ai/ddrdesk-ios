@@ -21,6 +21,7 @@ final class DeskSession: ObservableObject {
     @Published var hostName: String = ""
     @Published var screenW: UInt32 = 1280
     @Published var screenH: UInt32 = 800
+    @Published var cursor: CursorPos?
 
     let video = VideoSink()
     let discovery = Discovery()
@@ -284,6 +285,10 @@ final class DeskSession: ObservableObject {
             if let s = try? JSONDecoder().decode(StatusMsg.self, from: payload) {
                 statusLine = s.msg.isEmpty ? s.state : s.msg
             }
+        case .cursor:
+            if let c = try? JSONDecoder().decode(CursorPos.self, from: payload) {
+                cursor = c
+            }
         case .pong:
             if payload.count >= 8 {
                 let sent = payload.prefix(8).withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).bigEndian }
@@ -297,16 +302,9 @@ final class DeskSession: ObservableObject {
     }
 
     private func adaptBitrate() {
-        let target: UInt32
-        if rttMs > 180 { target = 2500 }
-        else if rttMs > 90 { target = 5000 }
-        else { target = 8000 }
-        if target != kbps {
-            kbps = target
-            if let data = try? JSONEncoder().encode(BitrateHint(kbps: target)) {
-                send(type: .bitrateHint, payload: data)
-            }
-        }
+        // Bitrate is advisory only; restarting the encoder froze the picture.
+        _ = rttMs
+        _ = kbps
     }
 
     private func sendPing() {
