@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 jobs:
   ipa:
@@ -63,19 +64,21 @@ jobs:
           export IPA_URL="https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/DDRDesk.ipa"
           export DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           python3 - << 'PY'
-          import json, os
+          import json, os, html as htmlmod
           version = os.environ["VERSION"]
           build = int(os.environ["BUILD"])
           size = int(os.environ["SIZE"])
           ipa = os.environ["IPA_URL"]
           date = os.environ["DATE"]
           notes = (os.environ.get("NOTES") or "Latest main").splitlines()[0].strip()
+          notes_html = htmlmod.escape(notes)
           latest = {
             "version": version,
             "build": build,
             "ipaURL": ipa,
             "notes": notes,
             "date": date,
+            "installPageURL": "https://ddr-ai.github.io/ddrdesk-ios/",
           }
           altstore = {
             "name": "DDRDesk",
@@ -103,8 +106,57 @@ jobs:
           }
           open("latest.json","w").write(json.dumps(latest, indent=2) + "\n")
           open("altstore.json","w").write(json.dumps(altstore, indent=2) + "\n")
+          os.makedirs("site", exist_ok=True)
+          enc = ipa.replace(":", "%3A").replace("/", "%2F")
+          html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>DDRDesk iOS update</title>
+<style>
+body {{ font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #0b1220; color: #e8eef7; }}
+main {{ max-width: 28rem; margin: 0 auto; padding: 1.5rem; }}
+h1 {{ font-weight: 650; }}
+.card {{ background: #162033; border-radius: 16px; padding: 1rem 1.1rem; margin: 1rem 0; }}
+a.btn {{ display: block; text-align: center; padding: 0.9rem; margin: 0.55rem 0; border-radius: 12px; text-decoration: none; font-weight: 650; color: #041018; background: #22d3ee; }}
+a.btn.alt {{ background: #94a3b8; }}
+p, li {{ color: #b6c2d4; line-height: 1.45; }}
+code {{ color: #f8fafc; }}
+</style>
+</head>
+<body>
+<main>
+<h1>DDRDesk</h1>
+<p>Install or update the iPhone/iPad app. Built on GitHub Actions — no Mac and no local Xcode.</p>
+<div class="card">
+<strong>{version}</strong> &nbsp; build {build}<br/>
+<span>{notes_html}</span>
+</div>
+<p>Tap the installer you already have on this phone. After the first sideload, you should not need a computer.</p>
+<a class="btn" href="altstore://install?url={enc}">Install with AltStore</a>
+<a class="btn" href="sidestore://install?url={enc}">Install with SideStore</a>
+<a class="btn" href="feather://install?url={enc}">Install with Feather</a>
+<a class="btn" href="esign://install?url={enc}">Install with ESign</a>
+<a class="btn" href="apple-magnifier://install?url={enc}">Install with TrollStore</a>
+<a class="btn alt" href="{ipa}">Download DDRDesk.ipa</a>
+<p>AltStore/SideStore source (add once):<br/>
+<code>https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/altstore.json</code></p>
+</main>
+</body>
+</html>
+"""
+          open("site/index.html","w").write(html)
           print(open("latest.json").read())
           PY
+
+      - name: Publish phone install page
+        if: github.event_name != 'pull_request'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
+          force_orphan: true
 
       - uses: actions/upload-artifact@v4
         with:
@@ -125,15 +177,19 @@ jobs:
           tag=unsigned-ipa
           notes="Unsigned arm64 iPhone/iPad IPA (build ${BUILD}).
 
-          The installed app checks this feed and opens AltStore/SideStore/TrollStore to apply the new IPA:
-          https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/latest.json
+          Phone install page (no Mac / no Xcode):
+          https://ddr-ai.github.io/ddrdesk-ios/
 
-          AltStore source (add once):
+          The app checks latest.json and opens AltStore, SideStore, Feather, ESign, or TrollStore on the phone.
+
+          AltStore/SideStore source:
           https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/altstore.json
 
           Bundle ID: ai.ddr.DDRDesk"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" DDRDesk.ipa latest.json altstore.json --clobber
+            # enable GitHub Pages from gh-pages if not already
+            gh api -X POST repos/ddr-ai/ddrdesk-ios/pages -f source[branch]=gh-pages -f source[path]=/ >/dev/null 2>&1 || true
             gh release edit "$tag" --notes "$notes" --title "DDRDesk unsigned IPA (build ${BUILD})"
           else
             gh release create "$tag" DDRDesk.ipa latest.json altstore.json --title "DDRDesk unsigned IPA (build ${BUILD})" --notes "$notes"

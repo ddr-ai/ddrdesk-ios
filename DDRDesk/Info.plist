@@ -25,6 +25,10 @@
 		<string>altstore</string>
 		<string>sidestore</string>
 		<string>apple-magnifier</string>
+		<string>trollstore</string>
+		<string>feather</string>
+		<string>esign</string>
+		<string>gbox</string>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>

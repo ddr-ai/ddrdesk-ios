@@ -29,22 +29,26 @@ The IPA has **no** signature and **no** provisioning profile. Sign it with your 
 
 Bundle ID is `ai.ddr.DDRDesk`. On first launch, allow **Local Network** (mDNS).
 
-## Auto-update
+## Auto-update (no Mac, no local Xcode)
 
-iOS will not silently replace a sideloaded app. DDRDesk does the next best thing:
+The IPA is **always built in GitHub Actions** on a cloud Mac. You never need Xcode or an Apple computer on your laptop.
 
-1. Every push to `main` stamps a new **build number** (`github.run_number`) into the IPA.
-2. GitHub Actions publishes `latest.json` next to the IPA.
-3. The app checks that feed on launch, when returning to the foreground, and every 2 minutes.
-4. If a newer build exists, it opens **AltStore**, **SideStore**, or **TrollStore** (`…://install?url=`) so the new IPA is installed over the old one. You should not need to download the IPA by hand after the first install.
+Stock iOS still cannot silently overwrite a sideloaded app. After the **first** install, updates happen on the phone:
 
-**One-time AltStore/SideStore setup (recommended):** add this source, then enable automatic app updates in AltStore:
+1. Push to `main` → Actions stamps a new build and publishes the IPA.
+2. The installed app checks `latest.json` on launch, when you return to it, and every 2 minutes.
+3. If a newer build exists it opens **AltStore, SideStore, Feather, ESign, or TrollStore** on the phone with the IPA URL. Those tools re-sign with *your* Apple ID — no Mac.
+4. Fallback: the in-app **Share IPA** sheet, or this page on the phone:
+
+https://ddr-ai.github.io/ddrdesk-ios/
+
+**First install (once):** Sideloadly on Windows, or Feather/ESign/GBox on the phone using that page. After that, keep Feather, ESign, SideStore, or AltStore installed so later updates stay on-device.
+
+**AltStore/SideStore source (add once):**
 
 https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/altstore.json
 
-Or in AltStore: **Sources → +** and paste that URL.
-
-The connect screen also shows **Update available — tap to install** if a newer build is on GitHub.
+The Fedora host GUI also shows the latest Actions build and can copy that install page.
 
 To build locally on a Mac:
 

@@ -71,21 +71,29 @@ struct ConnectView: View {
             .padding(.horizontal, 32)
 
             if updates.updateAvailable {
-                Button {
-                    updates.apply()
-                } label: {
-                    VStack(spacing: 4) {
-                        Text("Update available — tap to install")
-                            .font(.headline)
-                        if let v = updates.latest {
-                            Text("Build \(v.build)  (\(v.version))")
-                                .font(.caption)
+                VStack(spacing: 10) {
+                    Button {
+                        updates.apply()
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text("Update available — tap to install")
+                                .font(.headline)
+                            if let v = updates.latest {
+                                Text("Build \(v.build)  (\(v.version))")
+                                    .font(.caption)
+                            }
+                            Text("Opens AltStore, SideStore, Feather, or ESign on this phone. No Mac needed.")
+                                .font(.caption2)
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.orange.opacity(0.9), in: RoundedRectangle(cornerRadius: 14))
+                        .foregroundStyle(.black)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.orange.opacity(0.9), in: RoundedRectangle(cornerRadius: 14))
-                    .foregroundStyle(.black)
+                    Button("Share IPA to another installer") {
+                        updates.shareIPA()
+                    }
+                    .font(.footnote)
                 }
                 .padding(.horizontal, 32)
             }

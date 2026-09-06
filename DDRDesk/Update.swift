@@ -8,6 +8,7 @@ struct LatestBuild: Codable, Equatable {
     var ipaURL: String
     var notes: String?
     var date: String?
+    var installPageURL: String?
 }
 
 @MainActor
@@ -17,10 +18,12 @@ final class UpdateService: ObservableObject {
     static let feedURL = URL(string:
         "https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/latest.json"
     )!
+    static let installPage = URL(string: "https://ddr-ai.github.io/ddrdesk-ios/")!
 
     @Published var latest: LatestBuild?
     @Published var checking = false
     @Published var lastError: String?
+    @Published var installing = false
 
     var currentBuild: Int {
         Int(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0") ?? 0
@@ -83,22 +86,73 @@ final class UpdateService: ObservableObject {
         }
     }
 
+    /// No Mac / no Xcode: hand the new IPA to an on-device installer, or open
+    /// the phone install page. iOS cannot overwrite this app by itself.
     func apply() {
-        guard let latest else { return }
+        guard let latest else {
+            UIApplication.shared.open(Self.installPage)
+            return
+        }
         guard let ipa = URL(string: latest.ipaURL) else { return }
         let encoded = ipa.absoluteString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ipa.absoluteString
-        let candidates = [
-            URL(string: "altstore://install?url=\(encoded)"),
-            URL(string: "sidestore://install?url=\(encoded)"),
-            URL(string: "apple-magnifier://install?url=\(encoded)"),
-        ].compactMap { $0 }
-
-        for url in candidates {
-            if UIApplication.shared.canOpenURL(url) {
+        let schemes = [
+            "altstore://install?url=\(encoded)",
+            "sidestore://install?url=\(encoded)",
+            "feather://install?url=\(encoded)",
+            "esign://install?url=\(encoded)",
+            "gbox://import?url=\(encoded)",
+            "apple-magnifier://install?url=\(encoded)",
+            "trollstore://install?url=\(encoded)",
+        ]
+        for s in schemes {
+            if let url = URL(string: s), UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url)
                 return
             }
         }
-        UIApplication.shared.open(ipa)
+        if let page = latest.installPageURL.flatMap(URL.init(string:)) {
+            UIApplication.shared.open(page)
+        } else {
+            UIApplication.shared.open(Self.installPage)
+        }
     }
+
+    func shareIPA() {
+        guard let latest, let ipa = URL(string: latest.ipaURL) else {
+            apply()
+            return
+        }
+        installing = true
+        Task {
+            defer { installing = false }
+            do {
+                let (tmp, _) = try await URLSession.shared.download(from: ipa)
+                let dest = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("DDRDesk-\(latest.build).ipa")
+                try? FileManager.default.removeItem(at: dest)
+                try FileManager.default.moveItem(at: tmp, to: dest)
+                let av = UIActivityViewController(activityItems: [dest], applicationActivities: nil)
+                guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                      let root = scene.keyWindow?.rootViewController
+                        ?? scene.windows.first?.rootViewController else {
+                    apply()
+                    return
+                }
+                var presenter = root
+                while let p = presenter.presentedViewController { presenter = p }
+                if let pop = av.popoverPresentationController {
+                    pop.sourceView = presenter.view
+                    pop.sourceRect = CGRect(x: presenter.view.bounds.midX, y: presenter.view.bounds.midY, width: 0, height: 0)
+                }
+                presenter.present(av, animated: true)
+            } catch {
+                lastError = error.localizedDescription
+                apply()
+            }
+        }
+    }
+}
+
+private extension UIWindowScene {
+    var keyWindow: UIWindow? { windows.first(where: \.isKeyWindow) ?? windows.first }
 }
