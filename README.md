@@ -14,11 +14,20 @@ Native **iPhone and iPad** client for [ddrdesk-host](https://github.com/ddr-ai/d
 | Discovery | **Bonjour `_ddrdesk._tcp`** | Match the 9-digit ID on LAN. After pairing, WAN uses cached host endpoints (UPnP/STUN mapped). |
 | Reconnect | Exponential backoff 0.5s → 10s | Banner on disconnect; host keeps listening. |
 
-## Sideload the IPA
+## Download, sign, install
 
-1. GitHub → **Actions** → **Build unsigned IPA** → download `DDRDesk-unsigned-ipa`.
-2. Install with [AltStore](https://altstore.io), Sideloadly, or TrollStore (unsigned / developer-signed).
-3. On first launch iOS will ask for **Local Network** permission (mDNS).
+GitHub Actions builds an **unsigned arm64 device IPA** on every push to `main` (and via **Actions → Build unsigned IPA → Run workflow**).
+
+**Download (easiest):** [DDRDesk.ipa](https://github.com/ddr-ai/ddrdesk-ios/releases/download/unsigned-ipa/DDRDesk.ipa)  
+Release page: https://github.com/ddr-ai/ddrdesk-ios/releases/tag/unsigned-ipa
+
+The IPA has **no** signature and **no** provisioning profile. Sign it with your Apple ID, then install:
+
+1. **Sideloadly** (Windows/macOS): open `DDRDesk.ipa`, sign in with your Apple ID, install to the iPhone.
+2. **AltStore / AltServer**: sideload the IPA; it re-signs with your Apple ID.
+3. **Mac + Xcode**: `codesign` / Xcode “Signing & Capabilities” with your team, then install.
+
+Bundle ID is `ai.ddr.DDRDesk`. On first launch, allow **Local Network** (mDNS).
 
 To build locally on a Mac:
 

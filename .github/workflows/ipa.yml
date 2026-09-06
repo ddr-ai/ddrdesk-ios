@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   ipa:
@@ -40,6 +40,7 @@ jobs:
           APP=$(find DerivedData/Build/Products -name 'DDRDesk.app' -type d | head -n1)
           test -n "$APP"
           echo "Using $APP"
+          file "$APP/DDRDesk"
           rm -rf Payload DDRDesk.ipa
           mkdir Payload
           cp -R "$APP" Payload/
@@ -51,3 +52,21 @@ jobs:
           name: DDRDesk-unsigned-ipa
           path: DDRDesk.ipa
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=unsigned-ipa
+          notes="Unsigned arm64 iPhone/iPad IPA (no signing). Download, sign with your Apple ID (Sideloadly, AltStore, or Xcode), then install.
+
+          Bundle ID: ai.ddr.DDRDesk
+          Platforms: iPhone + iPad"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" DDRDesk.ipa --clobber
+            gh release edit "$tag" --notes "$notes"
+          else
+            gh release create "$tag" DDRDesk.ipa --title "DDRDesk unsigned IPA" --notes "$notes"
+          fi
