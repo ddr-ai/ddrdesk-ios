@@ -4,6 +4,7 @@ struct SessionView: View {
     @ObservedObject var session: DeskSession
     @State private var keyboardOn = true
     @State private var lastOrientation = OrientationName.current()
+    @State private var kbAnchor = KeyboardAnchor()
 
     var body: some View {
         ZStack {
@@ -18,7 +19,11 @@ struct SessionView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            TrackpadView(session: session, onTapKeyboard: { keyboardOn = true })
+            TrackpadView(session: session, onTapKeyboard: {
+                if keyboardOn {
+                    kbAnchor.focus()
+                }
+            })
                 .ignoresSafeArea()
 
             VStack {
@@ -27,6 +32,11 @@ struct SessionView: View {
                 HStack {
                     Button {
                         keyboardOn.toggle()
+                        if keyboardOn {
+                            kbAnchor.focus()
+                        } else {
+                            kbAnchor.blur()
+                        }
                     } label: {
                         Image(systemName: keyboardOn ? "keyboard.fill" : "keyboard")
                             .font(.title2)
@@ -48,15 +58,22 @@ struct SessionView: View {
                 .padding()
             }
 
-            KeyboardHost(session: session, focused: $keyboardOn)
-                .frame(width: 8, height: 8)
-                .opacity(0.02)
+        }
+        .safeAreaInset(edge: .bottom) {
+            if keyboardOn {
+                KeyboardHost(session: session, focused: keyboardOn, anchor: kbAnchor)
+                    .frame(height: 36)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.ultraThinMaterial)
+            }
         }
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)
         .onAppear {
             keyboardOn = true
             session.sendViewport()
+            kbAnchor.focus()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {

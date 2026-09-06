@@ -1,115 +1,82 @@
 import SwiftUI
 import UIKit
 
-/// System keyboard via UIKeyInput. Trackpad taps must not steal first-responder
-/// or keystrokes never leave the phone.
+final class KeyboardAnchor {
+    weak var field: RemoteField?
+    func focus() {
+        DispatchQueue.main.async {
+            _ = self.field?.becomeFirstResponder()
+        }
+    }
+    func blur() {
+        DispatchQueue.main.async {
+            self.field?.resignFirstResponder()
+        }
+    }
+}
+
+/// Visible system `UITextField` so the iOS keyboard actually stays first responder
+/// and forwards inserts/deletes. A hidden 1×1 UIKeyInput view never received keys.
 struct KeyboardHost: UIViewRepresentable {
     var session: DeskSession
-    @Binding var focused: Bool
+    var focused: Bool
+    var anchor: KeyboardAnchor
 
-    func makeCoordinator() -> Coord { Coord(session: session) }
-
-    func makeUIView(context: Context) -> KeyCatcher {
-        let v = KeyCatcher()
-        v.session = session
-        v.isUserInteractionEnabled = true
-        v.backgroundColor = .clear
-        return v
+    func makeUIView(context: Context) -> RemoteField {
+        let f = RemoteField()
+        f.session = session
+        f.delegate = f
+        f.placeholder = "Type on the remote desktop"
+        f.borderStyle = .roundedRect
+        f.backgroundColor = UIColor.secondarySystemBackground
+        f.returnKeyType = .default
+        f.keyboardType = .default
+        f.autocorrectionType = .no
+        f.autocapitalizationType = .none
+        f.spellCheckingType = .no
+        f.smartDashesType = .no
+        f.smartQuotesType = .no
+        f.smartInsertDeleteType = .no
+        f.textContentType = nil
+        f.enablesReturnKeyAutomatically = false
+        anchor.field = f
+        return f
     }
 
-    func updateUIView(_ uiView: KeyCatcher, context: Context) {
+    func updateUIView(_ uiView: RemoteField, context: Context) {
         uiView.session = session
+        uiView.delegate = uiView
+        anchor.field = uiView
         if focused {
-            _ = uiView.becomeFirstResponder()
+            if !uiView.isFirstResponder {
+                DispatchQueue.main.async { _ = uiView.becomeFirstResponder() }
+            }
         } else if uiView.isFirstResponder {
             uiView.resignFirstResponder()
         }
     }
-
-    final class Coord {
-        var session: DeskSession
-        init(session: DeskSession) { self.session = session }
-    }
 }
 
-final class KeyCatcher: UIView, UIKeyInput {
+final class RemoteField: UITextField, UITextFieldDelegate {
     var session: DeskSession?
 
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        if string.isEmpty {
+            session?.sendInput(InputJSON.key("backspace", down: true))
+            session?.sendInput(InputJSON.key("backspace", down: false))
+        } else {
+            session?.sendInput(InputJSON.text(string))
+        }
+        return false
+    }
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        session?.sendInput(InputJSON.key("return", down: true))
+        session?.sendInput(InputJSON.key("return", down: false))
+        return false
+    }
+
+    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool { true }
+
     override var canBecomeFirstResponder: Bool { true }
-    override var canResignFirstResponder: Bool { true }
-
-    var keyboardType: UIKeyboardType { .default }
-    var autocapitalizationType: UITextAutocapitalizationType { .none }
-    var autocorrectionType: UITextAutocorrectionType { .no }
-    var spellCheckingType: UITextSpellCheckingType { .no }
-    var smartQuotesType: UITextSmartQuotesType { .no }
-    var smartDashesType: UITextSmartDashesType { .no }
-    var textContentType: UITextContentType? { nil }
-
-    var hasText: Bool { true }
-
-    func insertText(_ text: String) {
-        if text == "\n" || text == "\r" {
-            session?.sendInput(InputJSON.key("return", down: true))
-            session?.sendInput(InputJSON.key("return", down: false))
-            return
-        }
-        if text == "\t" {
-            session?.sendInput(InputJSON.key("tab", down: true))
-            session?.sendInput(InputJSON.key("tab", down: false))
-            return
-        }
-        session?.sendInput(InputJSON.text(text))
-    }
-
-    func deleteBackward() {
-        session?.sendInput(InputJSON.key("backspace", down: true))
-        session?.sendInput(InputJSON.key("backspace", down: false))
-    }
-
-    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        var handled = false
-        for p in presses {
-            guard let key = p.key else { continue }
-            let name: String?
-            switch key.keyCode {
-            case .keyboardReturnOrEnter: name = "return"
-            case .keyboardEscape: name = "escape"
-            case .keyboardTab: name = "tab"
-            case .keyboardUpArrow: name = "up"
-            case .keyboardDownArrow: name = "down"
-            case .keyboardLeftArrow: name = "left"
-            case .keyboardRightArrow: name = "right"
-            case .keyboardDeleteOrBackspace: name = "backspace"
-            default: name = nil
-            }
-            if let name {
-                session?.sendInput(InputJSON.key(name, down: true))
-                handled = true
-            }
-        }
-        if !handled { super.pressesBegan(presses, with: event) }
-    }
-
-    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
-        for p in presses {
-            guard let key = p.key else { continue }
-            let name: String?
-            switch key.keyCode {
-            case .keyboardReturnOrEnter: name = "return"
-            case .keyboardEscape: name = "escape"
-            case .keyboardTab: name = "tab"
-            case .keyboardUpArrow: name = "up"
-            case .keyboardDownArrow: name = "down"
-            case .keyboardLeftArrow: name = "left"
-            case .keyboardRightArrow: name = "right"
-            case .keyboardDeleteOrBackspace: name = "backspace"
-            default: name = nil
-            }
-            if let name {
-                session?.sendInput(InputJSON.key(name, down: false))
-            }
-        }
-        super.pressesEnded(presses, with: event)
-    }
 }
