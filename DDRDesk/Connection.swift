@@ -21,7 +21,6 @@ final class DeskSession: ObservableObject {
     @Published var hostName: String = ""
     @Published var screenW: UInt32 = 1280
     @Published var screenH: UInt32 = 800
-    @Published var cursor: CursorPos?
 
     let video = VideoSink()
     let discovery = Discovery()

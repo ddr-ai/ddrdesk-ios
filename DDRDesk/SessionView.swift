@@ -15,10 +15,6 @@ struct SessionView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            CursorLayer(cursor: session.cursor)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
-
             TrackpadView(session: session, onTapKeyboard: {
                 if keyboardOn {
                     kbAnchor.focus()
