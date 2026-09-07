@@ -284,10 +284,6 @@ final class DeskSession: ObservableObject {
             if let s = try? JSONDecoder().decode(StatusMsg.self, from: payload) {
                 statusLine = s.msg.isEmpty ? s.state : s.msg
             }
-        case .cursor:
-            if let c = try? JSONDecoder().decode(CursorPos.self, from: payload) {
-                cursor = c
-            }
         case .pong:
             if payload.count >= 8 {
                 let sent = payload.prefix(8).withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).bigEndian }
