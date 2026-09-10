@@ -105,7 +105,7 @@ struct SessionView: View {
                     trayButton("arrow.down.right.and.arrow.up.left", "Fit screen") {
                         zoom.reset()
                     }
-                    trayButton("textformat.size", "Scale UI") {
+                    trayButton("textformat.size", "Desktop scale") {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
                             scalePanel.toggle()
                         }
