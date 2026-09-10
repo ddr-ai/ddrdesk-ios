@@ -24,14 +24,9 @@ struct SessionView: View {
             })
                 .ignoresSafeArea()
 
-            // Full-height left-edge scroll strip (portrait and landscape).
-            HStack(spacing: 0) {
-                ScrollStrip(session: session)
-                    .frame(width: 28)
-                    .ignoresSafeArea(edges: .vertical)
-                Spacer(minLength: 0)
-            }
-            .ignoresSafeArea()
+            // Full-screen overlay: hits only the right strip unless a scroll is in progress.
+            ScrollStrip(session: session)
+                .ignoresSafeArea()
 
             VStack {
                 statusBar
@@ -39,10 +34,10 @@ struct SessionView: View {
             }
 
             HStack {
-                Spacer()
                 sideTray
+                Spacer()
             }
-            .padding(.trailing, 6)
+            .padding(.leading, 6)
         }
         .safeAreaInset(edge: .bottom) {
             if keyboardOn {
@@ -77,6 +72,19 @@ struct SessionView: View {
 
     private var sideTray: some View {
         HStack(spacing: 8) {
+            Button {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                    trayOpen.toggle()
+                }
+            } label: {
+                Image(systemName: trayOpen ? "chevron.left" : "chevron.right")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 56)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            .accessibilityLabel(trayOpen ? "Hide controls" : "Show controls")
+
             if trayOpen {
                 VStack(spacing: 10) {
                     trayButton(keyboardOn ? "keyboard.fill" : "keyboard", "Keyboard") {
@@ -96,21 +104,8 @@ struct SessionView: View {
                 }
                 .padding(10)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .transition(.move(edge: .leading).combined(with: .opacity))
             }
-
-            Button {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
-                    trayOpen.toggle()
-                }
-            } label: {
-                Image(systemName: trayOpen ? "chevron.right" : "chevron.left")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 28, height: 56)
-                    .background(.ultraThinMaterial, in: Capsule())
-            }
-            .accessibilityLabel(trayOpen ? "Hide controls" : "Show controls")
         }
         .animation(.spring(response: 0.28, dampingFraction: 0.86), value: trayOpen)
     }
