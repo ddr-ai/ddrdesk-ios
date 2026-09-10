@@ -1,9 +1,10 @@
 import SwiftUI
 import AVFoundation
 
-/// Hosts `VideoSink.layer` and keeps it aspect-fit (entire desktop visible, no pan/zoom).
+/// Hosts `VideoSink.layer`. Aspect-fit by default; pinch-zoom is applied as a view transform.
 struct RemoteScreen: UIViewRepresentable {
     let sink: VideoSink
+    @ObservedObject var zoom: ZoomState
     var onReady: () -> Void
 
     func makeCoordinator() -> Coord { Coord(onReady: onReady) }
@@ -13,7 +14,9 @@ struct RemoteScreen: UIViewRepresentable {
         v.sink = sink
         v.onReady = { context.coordinator.onReady() }
         v.backgroundColor = .black
+        v.clipsToBounds = true
         v.attach()
+        v.apply(zoom: zoom)
         return v
     }
 
@@ -21,6 +24,7 @@ struct RemoteScreen: UIViewRepresentable {
         uiView.sink = sink
         uiView.onReady = { context.coordinator.onReady() }
         uiView.attach()
+        uiView.apply(zoom: zoom)
     }
 
     final class Coord {
@@ -42,6 +46,11 @@ struct RemoteScreen: UIViewRepresentable {
                 self.layer.addSublayer(layer)
             }
             layer.frame = bounds
+        }
+
+        func apply(zoom: ZoomState) {
+            transform = CGAffineTransform(translationX: zoom.offset.width, y: zoom.offset.height)
+                .scaledBy(x: zoom.scale, y: zoom.scale)
         }
 
         override func layoutSubviews() {

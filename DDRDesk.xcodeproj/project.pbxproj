@@ -20,6 +20,7 @@
 		A1000000000000000000000B /* ConnectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* ConnectView.swift */; };
 		A1000000000000000000000C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* Assets.xcassets */; };
 		A1000000000000000000000E /* Update.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* Update.swift */; };
+		A1000000000000000000000F /* ZoomState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* ZoomState.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -36,6 +37,7 @@
 		A2000000000000000000000B /* ConnectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectView.swift; sourceTree = "<group>"; };
 		A2000000000000000000000C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A2000000000000000000000E /* Update.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Update.swift; sourceTree = "<group>"; };
+		A2000000000000000000000F /* ZoomState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomState.swift; sourceTree = "<group>"; };
 		A2000000000000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A30000000000000000000001 /* DDRDesk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DDRDesk.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -74,6 +76,7 @@
 				A20000000000000000000008 /* TrackpadView.swift */,
 				A20000000000000000000009 /* KeyboardHost.swift */,
 				A2000000000000000000000E /* Update.swift */,
+				A2000000000000000000000F /* ZoomState.swift */,
 				A2000000000000000000000C /* Assets.xcassets */,
 				A2000000000000000000000D /* Info.plist */,
 			);
@@ -169,6 +172,7 @@
 				A1000000000000000000000A /* SessionView.swift in Sources */,
 				A1000000000000000000000B /* ConnectView.swift in Sources */,
 				A1000000000000000000000E /* Update.swift in Sources */,
+				A1000000000000000000000F /* ZoomState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

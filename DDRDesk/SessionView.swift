@@ -5,17 +5,18 @@ struct SessionView: View {
     @State private var keyboardOn = true
     @State private var lastOrientation = OrientationName.current()
     @State private var kbAnchor = KeyboardAnchor()
+    @StateObject private var zoom = ZoomState()
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            RemoteScreen(sink: session.video, onReady: {
+            RemoteScreen(sink: session.video, zoom: zoom, onReady: {
                 session.requestKeyframe()
             })
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            TrackpadView(session: session, onTapKeyboard: {
+            TrackpadView(session: session, zoom: zoom, onTapKeyboard: {
                 if keyboardOn {
                     kbAnchor.focus()
                 }
@@ -76,8 +77,7 @@ struct SessionView: View {
                 let now = OrientationName.current()
                 if now != lastOrientation {
                     lastOrientation = now
-                    // Relayout only. Do not tear down the decoder; the host keeps
-                    // the same landscape encode and the layer letterboxes.
+                    zoom.reset()
                     session.sendViewport()
                 }
             }
