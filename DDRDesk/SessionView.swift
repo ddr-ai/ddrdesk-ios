@@ -24,6 +24,15 @@ struct SessionView: View {
             })
                 .ignoresSafeArea()
 
+            // Full-height left-edge scroll strip (portrait and landscape).
+            HStack(spacing: 0) {
+                ScrollStrip(session: session)
+                    .frame(width: 28)
+                    .ignoresSafeArea(edges: .vertical)
+                Spacer(minLength: 0)
+            }
+            .ignoresSafeArea()
+
             VStack {
                 statusBar
                 Spacer()
