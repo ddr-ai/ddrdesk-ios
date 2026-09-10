@@ -84,6 +84,11 @@ final class DeskSession: ObservableObject {
         send(type: .requestKeyframe, payload: Data())
     }
 
+    func sendUiScale(_ factor: Float) {
+        let payload = Data("{\"factor\":\(factor)}".utf8)
+        send(type: .uiScale, payload: payload)
+    }
+
     private func attempt() {
         guard shouldRun else { return }
         state = .searching

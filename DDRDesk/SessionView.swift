@@ -4,6 +4,8 @@ struct SessionView: View {
     @ObservedObject var session: DeskSession
     @State private var keyboardOn = false
     @State private var trayOpen = false
+    @State private var scalePanel = false
+    @State private var uiScale: Double = 1.5
     @State private var lastOrientation = OrientationName.current()
     @State private var kbAnchor = KeyboardAnchor()
     @StateObject private var zoom = ZoomState()
@@ -33,8 +35,12 @@ struct SessionView: View {
                 Spacer()
             }
 
-            HStack {
+            HStack(alignment: .center, spacing: 8) {
                 sideTray
+                if trayOpen && scalePanel {
+                    scaleSlider
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
                 Spacer()
             }
             .padding(.leading, 6)
@@ -66,6 +72,7 @@ struct SessionView: View {
         .onChange(of: session.state) { _, new in
             if case .streaming = new {
                 session.sendViewport()
+                session.sendUiScale(Float(uiScale))
             }
         }
     }
@@ -98,6 +105,11 @@ struct SessionView: View {
                     trayButton("arrow.down.right.and.arrow.up.left", "Fit screen") {
                         zoom.reset()
                     }
+                    trayButton("textformat.size", "Scale UI") {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                            scalePanel.toggle()
+                        }
+                    }
                     trayButton("xmark", "Disconnect") {
                         session.disconnect()
                     }
@@ -110,12 +122,40 @@ struct SessionView: View {
         .animation(.spring(response: 0.28, dampingFraction: 0.86), value: trayOpen)
     }
 
+    private var chrome: CGFloat {
+        1.0 + (uiScale - 1.0) * 0.35
+    }
+
+    private var scaleSlider: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "textformat.size")
+                    .foregroundStyle(.white)
+                Text("\(Int(uiScale * 100))%")
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.white)
+            }
+            Slider(value: $uiScale, in: 1.0...2.5, step: 0.25)
+                .tint(.cyan)
+                .frame(width: 140)
+                .onChange(of: uiScale) { _, v in
+                    session.sendUiScale(Float(v))
+                }
+            Text("Larger UI, still fits the phone")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.7))
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
     private func trayButton(_ system: String, _ label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        let s = 40 + 10 * chrome
+        return Button(action: action) {
             Image(systemName: system)
-                .font(.title3)
+                .font(.system(size: 15 + 4 * chrome))
                 .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
+                .frame(width: s, height: s)
                 .background(Color.white.opacity(0.12), in: Circle())
         }
         .accessibilityLabel(label)

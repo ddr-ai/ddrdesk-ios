@@ -15,6 +15,7 @@ enum Msg: UInt8 {
     case goodbye = 0x0B
     case bitrateHint = 0x0C
     case cursor = 0x0D
+    case uiScale = 0x0E
 }
 
 enum OrientationName {
