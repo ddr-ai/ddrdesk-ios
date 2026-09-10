@@ -53,7 +53,7 @@ struct RemoteScreen: UIViewRepresentable {
         func apply(zoom: ZoomState) {
             scale = max(1, zoom.scale)
             offset = zoom.offset
-            zoom.viewSize = bounds
+            zoom.viewSize = bounds.size
             layoutVideo()
         }
 
