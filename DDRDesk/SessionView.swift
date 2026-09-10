@@ -2,7 +2,8 @@ import SwiftUI
 
 struct SessionView: View {
     @ObservedObject var session: DeskSession
-    @State private var keyboardOn = true
+    @State private var keyboardOn = false
+    @State private var trayOpen = false
     @State private var lastOrientation = OrientationName.current()
     @State private var kbAnchor = KeyboardAnchor()
     @StateObject private var zoom = ZoomState()
@@ -26,35 +27,13 @@ struct SessionView: View {
             VStack {
                 statusBar
                 Spacer()
-                HStack {
-                    Button {
-                        keyboardOn.toggle()
-                        if keyboardOn {
-                            kbAnchor.focus()
-                        } else {
-                            kbAnchor.blur()
-                        }
-                    } label: {
-                        Image(systemName: keyboardOn ? "keyboard.fill" : "keyboard")
-                            .font(.title2)
-                            .padding(12)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    .accessibilityLabel("Toggle keyboard")
-                    Spacer()
-                    Button {
-                        session.disconnect()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.title2)
-                            .padding(12)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    .accessibilityLabel("Disconnect")
-                }
-                .padding()
             }
 
+            HStack {
+                Spacer()
+                sideTray
+            }
+            .padding(.trailing, 6)
         }
         .safeAreaInset(edge: .bottom) {
             if keyboardOn {
@@ -68,16 +47,14 @@ struct SessionView: View {
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)
         .onAppear {
-            keyboardOn = true
             session.sendViewport()
-            kbAnchor.focus()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                 let now = OrientationName.current()
                 if now != lastOrientation {
                     lastOrientation = now
-                    zoom.reset()
+                    zoom.clampOffset()
                     session.sendViewport()
                 }
             }
@@ -87,6 +64,57 @@ struct SessionView: View {
                 session.sendViewport()
             }
         }
+    }
+
+    private var sideTray: some View {
+        HStack(spacing: 8) {
+            if trayOpen {
+                VStack(spacing: 10) {
+                    trayButton(keyboardOn ? "keyboard.fill" : "keyboard", "Keyboard") {
+                        keyboardOn.toggle()
+                        if keyboardOn {
+                            kbAnchor.focus()
+                        } else {
+                            kbAnchor.blur()
+                        }
+                    }
+                    trayButton("arrow.down.right.and.arrow.up.left", "Fit screen") {
+                        zoom.reset()
+                    }
+                    trayButton("xmark", "Disconnect") {
+                        session.disconnect()
+                    }
+                }
+                .padding(10)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+
+            Button {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                    trayOpen.toggle()
+                }
+            } label: {
+                Image(systemName: trayOpen ? "chevron.right" : "chevron.left")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 28, height: 56)
+                    .background(.ultraThinMaterial, in: Capsule())
+            }
+            .accessibilityLabel(trayOpen ? "Hide controls" : "Show controls")
+        }
+        .animation(.spring(response: 0.28, dampingFraction: 0.86), value: trayOpen)
+    }
+
+    private func trayButton(_ system: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: system)
+                .font(.title3)
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(Color.white.opacity(0.12), in: Circle())
+        }
+        .accessibilityLabel(label)
     }
 
     @ViewBuilder

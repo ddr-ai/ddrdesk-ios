@@ -1,7 +1,7 @@
 import SwiftUI
 import AVFoundation
 
-/// Hosts `VideoSink.layer`. Aspect-fit by default; pinch-zoom is applied as a view transform.
+/// Hosts `VideoSink.layer`. Pinch scale resizes the picture and stays until changed.
 struct RemoteScreen: UIViewRepresentable {
     let sink: VideoSink
     @ObservedObject var zoom: ZoomState
@@ -36,6 +36,8 @@ struct RemoteScreen: UIViewRepresentable {
         var sink: VideoSink?
         var onReady: (() -> Void)?
         private var didReady = false
+        private var scale: CGFloat = 1
+        private var offset: CGSize = .zero
 
         func attach() {
             guard let layer = sink?.layer else { return }
@@ -45,18 +47,32 @@ struct RemoteScreen: UIViewRepresentable {
                 layer.removeFromSuperlayer()
                 self.layer.addSublayer(layer)
             }
-            layer.frame = bounds
+            layoutVideo()
         }
 
         func apply(zoom: ZoomState) {
-            transform = CGAffineTransform(translationX: zoom.offset.width, y: zoom.offset.height)
-                .scaledBy(x: zoom.scale, y: zoom.scale)
+            scale = max(1, zoom.scale)
+            offset = zoom.offset
+            zoom.viewSize = bounds
+            layoutVideo()
+        }
+
+        private func layoutVideo() {
+            guard let layer = sink?.layer else { return }
+            let s = max(1, scale)
+            let w = bounds.width * s
+            let h = bounds.height * s
+            let x = (bounds.width - w) / 2 + offset.width
+            let y = (bounds.height - h) / 2 + offset.height
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.frame = CGRect(x: x, y: y, width: w, height: h)
+            CATransaction.commit()
         }
 
         override func layoutSubviews() {
             super.layoutSubviews()
-            sink?.layer.frame = bounds
-            sink?.layer.videoGravity = .resizeAspect
+            layoutVideo()
             if bounds.width > 2, bounds.height > 2, !didReady {
                 didReady = true
                 onReady?()

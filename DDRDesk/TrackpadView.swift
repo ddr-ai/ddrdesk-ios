@@ -64,6 +64,7 @@ final class TrackpadUIView: UIView, UIGestureRecognizerDelegate {
             pinchBase = zoom.scale
             cancelPendingLeft()
         }
+        zoom.viewSize = bounds.size
         zoom.pinch(base: pinchBase, factor: g.scale)
         zoom.objectWillChange.send()
     }
@@ -109,6 +110,11 @@ final class TrackpadUIView: UIView, UIGestureRecognizerDelegate {
                 moved = true
                 cancelPendingLeft()
                 session?.sendInput(InputJSON.move(dx: dx, dy: dy))
+                if let zoom, zoom.scale > 1 {
+                    zoom.viewSize = bounds.size
+                    zoom.followCursor(dx: CGFloat(dx), dy: CGFloat(dy))
+                    zoom.objectWillChange.send()
+                }
             }
         }
         self.last = p
