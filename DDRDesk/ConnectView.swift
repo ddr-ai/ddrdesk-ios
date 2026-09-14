@@ -114,6 +114,8 @@ struct ConnectView: View {
                 .padding(.bottom)
         }
         .padding()
+        .frame(maxWidth: 520)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             idFocused = true
             Task { await updates.check(autoInstall: true) }

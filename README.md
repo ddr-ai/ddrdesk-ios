@@ -7,7 +7,7 @@ Native **iPhone and iPad** client for [ddrdesk-host](https://github.com/ddr-ai/d
 | Piece | Choice | Why |
 |---|---|---|
 | UI | **SwiftUI** | iPhone + iPad from one target (`TARGETED_DEVICE_FAMILY = 1,2`). |
-| Keyboard | **System `UITextField`** | Requirement: the device’s **native** keyboard, including on the Fedora login greeter. No custom keyboard view. Hidden first-responder forwards inserts/deletes. |
+| Keyboard | **System keyboard + textarea** | Native iPhone/iPad keyboard. A textarea above it shows what you typed and clears when the keyboard is dismissed. |
 | Pointer | **UIKit trackpad overlay** | One-finger drag = relative move, tap = left click, quick double-tap = right click. |
 | Video | **VideoToolbox / `AVSampleBufferDisplayLayer`** | Hardware H.264 decode, aspect-fit so the whole desktop is visible without pinch-zoom. |
 | Network | **Network.framework TLS 1.3** | Talks directly to the host. `TCP_NODELAY`, ALPN `ddrdesk/1`, TOFU cert pin. No relay. |

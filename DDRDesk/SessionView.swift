@@ -48,7 +48,8 @@ struct SessionView: View {
         .safeAreaInset(edge: .bottom) {
             if keyboardOn {
                 KeyboardHost(session: session, focused: keyboardOn, anchor: kbAnchor)
-                    .frame(height: 36)
+                    .frame(minHeight: UIDevice.current.userInterfaceIdiom == .pad ? 120 : 88)
+                    .frame(maxHeight: UIDevice.current.userInterfaceIdiom == .pad ? 160 : 120)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(.ultraThinMaterial)
@@ -58,6 +59,14 @@ struct SessionView: View {
         .persistentSystemOverlays(.hidden)
         .onAppear {
             session.sendViewport()
+            let kb = $keyboardOn
+            kbAnchor.onDismiss = {
+                kbAnchor.clearDraft()
+                kb.wrappedValue = false
+            }
+        }
+        .onChange(of: keyboardOn) { _, on in
+            if !on { kbAnchor.clearDraft() }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -95,11 +104,13 @@ struct SessionView: View {
             if trayOpen {
                 VStack(spacing: 10) {
                     trayButton(keyboardOn ? "keyboard.fill" : "keyboard", "Keyboard") {
-                        keyboardOn.toggle()
                         if keyboardOn {
-                            kbAnchor.focus()
-                        } else {
+                            kbAnchor.clearDraft()
                             kbAnchor.blur()
+                            keyboardOn = false
+                        } else {
+                            keyboardOn = true
+                            kbAnchor.focus()
                         }
                     }
                     trayButton("arrow.down.right.and.arrow.up.left", "Fit screen") {
@@ -122,10 +133,6 @@ struct SessionView: View {
         .animation(.spring(response: 0.28, dampingFraction: 0.86), value: trayOpen)
     }
 
-    private var chrome: CGFloat {
-        1.0 + (uiScale - 1.0) * 0.35
-    }
-
     private var scaleSlider: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -139,9 +146,10 @@ struct SessionView: View {
                 .tint(.cyan)
                 .frame(width: 140)
                 .onChange(of: uiScale) { _, v in
+                    zoom.reset()
                     session.sendUiScale(Float(v))
                 }
-            Text("Larger UI, still fits the phone")
+            Text("Laptop desktop UI. Full screen still fits.")
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.7))
         }
@@ -150,12 +158,11 @@ struct SessionView: View {
     }
 
     private func trayButton(_ system: String, _ label: String, action: @escaping () -> Void) -> some View {
-        let s = 40 + 10 * chrome
-        return Button(action: action) {
+        Button(action: action) {
             Image(systemName: system)
-                .font(.system(size: 15 + 4 * chrome))
+                .font(.title3)
                 .foregroundStyle(.white)
-                .frame(width: s, height: s)
+                .frame(width: 44, height: 44)
                 .background(Color.white.opacity(0.12), in: Circle())
         }
         .accessibilityLabel(label)

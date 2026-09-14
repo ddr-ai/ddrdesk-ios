@@ -3,35 +3,52 @@ import UIKit
 
 final class KeyboardAnchor {
     weak var field: RemoteField?
+    var onDismiss: (() -> Void)?
+
     func focus() {
         DispatchQueue.main.async {
             _ = self.field?.becomeFirstResponder()
-            self.field?.restoreSentinel()
         }
     }
+
     func blur() {
         DispatchQueue.main.async {
             self.field?.resignFirstResponder()
         }
     }
+
+    func clearDraft() {
+        DispatchQueue.main.async {
+            self.field?.clearDraft()
+        }
+    }
 }
 
-/// System `UITextField`. A dummy character is kept in the field so Backspace
-/// still fires when iOS thinks there is nothing to delete.
+/// Visible textarea bound to the system keyboard. Keystrokes are sent to the
+/// host as they happen; the local box is a live echo and is wiped when the
+/// keyboard is dismissed.
 struct KeyboardHost: UIViewRepresentable {
     var session: DeskSession
     var focused: Bool
     var anchor: KeyboardAnchor
 
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
     func makeUIView(context: Context) -> RemoteField {
         let f = RemoteField()
         f.session = session
+        f.anchor = anchor
         f.delegate = f
-        f.placeholder = "Type on the remote desktop"
-        f.borderStyle = .roundedRect
+        f.font = UIFont.preferredFont(forTextStyle: .body)
         f.backgroundColor = UIColor.secondarySystemBackground
-        f.returnKeyType = .default
+        f.textColor = UIColor.label
+        f.layer.cornerRadius = 12
+        f.layer.masksToBounds = true
+        f.textContainerInset = UIEdgeInsets(top: 10, left: 8, bottom: 10, right: 8)
         f.keyboardType = .default
+        f.returnKeyType = .default
         f.autocorrectionType = .no
         f.autocapitalizationType = .none
         f.spellCheckingType = .no
@@ -39,37 +56,63 @@ struct KeyboardHost: UIViewRepresentable {
         f.smartQuotesType = .no
         f.smartInsertDeleteType = .no
         f.textContentType = nil
-        f.enablesReturnKeyAutomatically = false
-        f.restoreSentinel()
+        f.keyboardDismissMode = .interactive
+        f.placeholder = "Type on the remote desktop"
         anchor.field = f
         return f
     }
 
     func updateUIView(_ uiView: RemoteField, context: Context) {
         uiView.session = session
+        uiView.anchor = anchor
         uiView.delegate = uiView
         anchor.field = uiView
         if focused {
             if !uiView.isFirstResponder {
                 DispatchQueue.main.async { _ = uiView.becomeFirstResponder() }
             }
-        } else if uiView.isFirstResponder {
-            uiView.resignFirstResponder()
+        } else {
+            if uiView.isFirstResponder {
+                uiView.resignFirstResponder()
+            }
+            uiView.clearDraft()
         }
     }
+
+    final class Coordinator {}
 }
 
-final class RemoteField: UITextField, UITextFieldDelegate {
+final class RemoteField: UITextView, UITextViewDelegate {
     var session: DeskSession?
-    static let sentinel = "\u{200B}"
+    weak var anchor: KeyboardAnchor?
+    var placeholder: String = "" {
+        didSet { placeholderLabel.text = placeholder }
+    }
 
-    func restoreSentinel() {
-        if text != Self.sentinel {
-            text = Self.sentinel
+    private let placeholderLabel = UILabel()
+
+    override init(frame: CGRect, textContainer: NSTextContainer?) {
+        super.init(frame: frame, textContainer: textContainer)
+        placeholderLabel.font = UIFont.preferredFont(forTextStyle: .body)
+        placeholderLabel.textColor = UIColor.placeholderText
+        placeholderLabel.numberOfLines = 1
+        placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(placeholderLabel)
+        NSLayoutConstraint.activate([
+            placeholderLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            placeholderLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 13),
+            placeholderLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -13),
+        ])
+        refreshPlaceholder()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    func clearDraft() {
+        if !text.isEmpty {
+            text = ""
         }
-        if let end = position(from: beginningOfDocument, offset: 1) {
-            selectedTextRange = textRange(from: end, to: end)
-        }
+        refreshPlaceholder()
     }
 
     func sendBackspace() {
@@ -82,32 +125,51 @@ final class RemoteField: UITextField, UITextFieldDelegate {
         session?.sendInput(InputJSON.key("delete", down: false))
     }
 
-    override func deleteBackward() {
-        sendBackspace()
-        restoreSentinel()
-    }
-
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        if string.isEmpty {
-            let n = max(1, range.length)
-            for _ in 0..<n { sendBackspace() }
-            DispatchQueue.main.async { self.restoreSentinel() }
-            return false
-        }
-        session?.sendInput(InputJSON.text(string))
-        DispatchQueue.main.async { self.restoreSentinel() }
-        return false
-    }
-
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+    func sendReturn() {
         session?.sendInput(InputJSON.key("return", down: true))
         session?.sendInput(InputJSON.key("return", down: false))
-        return false
     }
 
-    func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool { true }
+    override func deleteBackward() {
+        if text.isEmpty {
+            sendBackspace()
+            return
+        }
+        super.deleteBackward()
+        refreshPlaceholder()
+    }
+
+    func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText string: String) -> Bool {
+        if string == "\n" {
+            sendReturn()
+            return true
+        }
+        if string.isEmpty {
+            if range.length == 0 { return false }
+            for _ in 0..<range.length { sendBackspace() }
+            DispatchQueue.main.async { self.refreshPlaceholder() }
+            return true
+        }
+        session?.sendInput(InputJSON.text(string))
+        DispatchQueue.main.async { self.refreshPlaceholder() }
+        return true
+    }
+
+    func textViewDidChange(_ textView: UITextView) {
+        refreshPlaceholder()
+    }
+
+    func textViewDidEndEditing(_ textView: UITextView) {
+        anchor?.onDismiss?()
+    }
+
+    func textViewShouldBeginEditing(_ textView: UITextView) -> Bool { true }
 
     override var canBecomeFirstResponder: Bool { true }
+
+    private func refreshPlaceholder() {
+        placeholderLabel.isHidden = !text.isEmpty
+    }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         var handled = false
@@ -115,8 +177,7 @@ final class RemoteField: UITextField, UITextFieldDelegate {
             guard let key = p.key else { continue }
             switch key.keyCode {
             case .keyboardDeleteOrBackspace:
-                sendBackspace()
-                handled = true
+                if text.isEmpty { sendBackspace() }
             case .keyboardDeleteForward:
                 sendDelete()
                 handled = true
