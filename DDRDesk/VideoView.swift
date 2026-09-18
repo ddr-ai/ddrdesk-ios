@@ -59,11 +59,15 @@ struct RemoteScreen: UIViewRepresentable {
 
         private func layoutVideo() {
             guard let layer = sink?.layer else { return }
-            let s = max(1, scale)
-            let w = bounds.width * s
-            let h = bounds.height * s
-            let x = (bounds.width - w) / 2 + offset.width
-            let y = (bounds.height - h) / 2 + offset.height
+            let phone = bounds
+            guard phone.width > 1, phone.height > 1 else { return }
+            // Magnify up to 300%. The host view clips to the phone, so the
+            // picture never paints outside the screen.
+            let s = min(ZoomState.maxScale, max(ZoomState.minScale, scale))
+            let w = phone.width * s
+            let h = phone.height * s
+            let x = (phone.width - w) / 2 + offset.width
+            let y = (phone.height - h) / 2 + offset.height
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             layer.frame = CGRect(x: x, y: y, width: w, height: h)

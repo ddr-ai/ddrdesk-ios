@@ -219,7 +219,7 @@ final class DeskSession: ObservableObject {
     }
 
     private func receiveMore() {
-        connection?.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) { [weak self] data, _, isComplete, error in
+        connection?.receive(minimumIncompleteLength: 1, maximumLength: 512 * 1024) { [weak self] data, _, isComplete, error in
             Task { @MainActor in
                 guard let self else { return }
                 if let data, !data.isEmpty {

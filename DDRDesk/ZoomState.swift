@@ -7,16 +7,29 @@ final class ZoomState: ObservableObject {
     var viewSize: CGSize = .zero
 
     static let minScale: CGFloat = 1
-    static let maxScale: CGFloat = 5
+    static let maxScale: CGFloat = 3
 
-    func pinch(base: CGFloat, factor: CGFloat) {
-        scale = min(Self.maxScale, max(Self.minScale, base * factor))
+    func setScale(_ value: CGFloat) {
+        let s = min(Self.maxScale, max(Self.minScale, value))
+        if abs(s - scale) < 0.001 { return }
+        scale = s
         if scale <= 1.02 {
             scale = 1
             offset = .zero
         } else {
             clampOffset()
         }
+        objectWillChange.send()
+    }
+
+    func cycleScreenScale() {
+        let steps: [CGFloat] = [1.0, 1.5, 2.0, 2.5, 3.0]
+        let next = steps.first(where: { $0 > scale + 0.05 }) ?? 1.0
+        setScale(next)
+    }
+
+    func pinch(base: CGFloat, factor: CGFloat) {
+        setScale(base * factor)
     }
 
     func pan(by delta: CGSize) {

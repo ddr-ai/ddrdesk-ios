@@ -5,6 +5,7 @@ struct SessionView: View {
     @State private var keyboardOn = false
     @State private var trayOpen = false
     @State private var scalePanel = false
+    @State private var phoneScalePanel = false
     @State private var uiScale: Double = 1.5
     @State private var lastOrientation = OrientationName.current()
     @State private var kbAnchor = KeyboardAnchor()
@@ -37,6 +38,10 @@ struct SessionView: View {
 
             HStack(alignment: .center, spacing: 8) {
                 sideTray
+                if trayOpen && phoneScalePanel {
+                    phoneScaleSlider
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
                 if trayOpen && scalePanel {
                     scaleSlider
                         .transition(.move(edge: .leading).combined(with: .opacity))
@@ -116,9 +121,16 @@ struct SessionView: View {
                     trayButton("arrow.down.right.and.arrow.up.left", "Fit screen") {
                         zoom.reset()
                     }
+                    trayButton("plus.magnifyingglass", "Screen scale") {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+                            phoneScalePanel.toggle()
+                            if phoneScalePanel { scalePanel = false }
+                        }
+                    }
                     trayButton("textformat.size", "Desktop scale") {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
                             scalePanel.toggle()
+                            if scalePanel { phoneScalePanel = false }
                         }
                     }
                     trayButton("xmark", "Disconnect") {
@@ -131,6 +143,40 @@ struct SessionView: View {
             }
         }
         .animation(.spring(response: 0.28, dampingFraction: 0.86), value: trayOpen)
+    }
+
+    private var phoneScaleSlider: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "plus.magnifyingglass")
+                    .foregroundStyle(.white)
+                Text("\(Int(zoom.scale * 100))%")
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.white)
+            }
+            Slider(
+                value: Binding(
+                    get: { zoom.scale },
+                    set: { zoom.setScale($0) }
+                ),
+                in: 1.0...3.0,
+                step: 0.25
+            )
+            .tint(.cyan)
+            .frame(width: 140)
+            HStack(spacing: 8) {
+                Button("100%") { zoom.setScale(1) }
+                Button("200%") { zoom.setScale(2) }
+                Button("300%") { zoom.setScale(3) }
+            }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            Text("Phone view up to 300%. Stays inside the screen.")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.7))
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var scaleSlider: some View {

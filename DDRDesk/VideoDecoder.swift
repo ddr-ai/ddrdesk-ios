@@ -4,8 +4,9 @@ import CoreMedia
 import AVFoundation
 
 /// Annex-B H.264 → AVSampleBufferDisplayLayer (hardware decode, lowest latency).
-final class VideoSink {
+final class VideoSink: @unchecked Sendable {
     let layer = AVSampleBufferDisplayLayer()
+    private let lock = NSLock()
     private var format: CMVideoFormatDescription?
     private var sps: Data?
     private var pps: Data?
@@ -19,9 +20,11 @@ final class VideoSink {
     }
 
     func reset() {
+        lock.lock()
         format = nil
         sps = nil
         pps = nil
+        lock.unlock()
         if #available(iOS 18.0, *) {
             layer.sampleBufferRenderer.flush()
         } else {
@@ -30,6 +33,8 @@ final class VideoSink {
     }
 
     func submit(annexB: Data, keyframe: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
         let nals = splitAnnexB(annexB)
         for nal in nals {
             guard !nal.isEmpty else { continue }
